@@ -39,7 +39,7 @@ func (a *App) Start(ctx context.Context) error {
 		}
 	}()
 
-	fmt.Println("Starting server")
+	fmt.Println("Starting the server")
 
 	ch := make(chan error, 1)
 
