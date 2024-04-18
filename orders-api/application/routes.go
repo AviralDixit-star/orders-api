@@ -1,7 +1,6 @@
 package application
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/AviralDixit-star/orders-api/handler"
@@ -11,7 +10,6 @@ import (
 )
 
 func (a *App) loadRouter() {
-	fmt.Println("loadRouter")
 	router := chi.NewRouter()
 
 	router.Use(middleware.Logger)
@@ -25,7 +23,6 @@ func (a *App) loadRouter() {
 }
 
 func (a *App) loadOrderRoutes(router chi.Router) {
-	fmt.Println("loadOrder")
 	orderHandler := &handler.Order{
 		Repo: &order.RedisRepo{
 			Client: a.rdb,
