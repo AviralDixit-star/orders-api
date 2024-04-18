@@ -1,14 +1,17 @@
 package application
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/AviralDixit-star/orders-api/handler"
+	"github.com/AviralDixit-star/orders-api/repository/order"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 )
 
-func loadRouter() *chi.Mux {
+func (a *App) loadRouter() {
+	fmt.Println("loadRouter")
 	router := chi.NewRouter()
 
 	router.Use(middleware.Logger)
@@ -17,12 +20,17 @@ func loadRouter() *chi.Mux {
 		w.Write([]byte("Hello"))
 	})
 
-	router.Route("/orders", loadOrderRoutes)
-	return router
+	router.Route("/orders", a.loadOrderRoutes)
+	a.router = router
 }
 
-func loadOrderRoutes(router chi.Router) {
-	orderHandler := &handler.Order{}
+func (a *App) loadOrderRoutes(router chi.Router) {
+	fmt.Println("loadOrder")
+	orderHandler := &handler.Order{
+		Repo: &order.RedisRepo{
+			Client: a.rdb,
+		},
+	}
 	router.Post("/", orderHandler.Create)
 	router.Get("/", orderHandler.List)
 	router.Get("/{id}", orderHandler.GetByID)
