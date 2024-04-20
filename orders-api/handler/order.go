@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -93,7 +94,27 @@ func (o *Order) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *Order) GetByID(w http.ResponseWriter, r *http.Request) {
+	idParam := r.URL.Query().Get("id")
 
+	orderID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		fmt.Errorf("failed to string to uint", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	h, err := o.Repo.FindByID(r.Context(), orderID)
+	fmt.Println("rtt")
+	if errors.Is(err, order.ErrNotExist) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	} else if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if err := json.NewEncoder(w).Encode(h); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }
 
 func (o *Order) UpdateByID(w http.ResponseWriter, r *http.Request) {
