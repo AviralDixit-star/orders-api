@@ -118,7 +118,7 @@ func (o *Order) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *Order) UpdateByID(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Update an order by an ID")
+	fmt.Println("Update an order by ID")
 }
 
 func (o *Order) DeleteByID(w http.ResponseWriter, r *http.Request) {
