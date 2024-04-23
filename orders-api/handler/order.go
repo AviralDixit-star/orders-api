@@ -11,6 +11,7 @@ import (
 
 	"github.com/AviralDixit-star/orders-api/model"
 	"github.com/AviralDixit-star/orders-api/repository/order"
+	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 )
 
@@ -94,8 +95,8 @@ func (o *Order) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *Order) GetByID(w http.ResponseWriter, r *http.Request) {
-	idParam := r.URL.Query().Get("id")
-	//idParam := chi.URLParam(r, "id")
+	//idParam := r.URL.Query().Get("id")
+	idParam := chi.URLParam(r, "id")
 
 	const base = 10
 	const bitSize = 64
@@ -106,7 +107,7 @@ func (o *Order) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h, err := o.Repo.FindByID(r.Context(), orderID)
+	theOrder, err := o.Repo.FindByID(r.Context(), orderID)
 	if errors.Is(err, order.ErrNotExist) {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -116,7 +117,7 @@ func (o *Order) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(h); err != nil {
+	if err := json.NewEncoder(w).Encode(theOrder); err != nil {
 		fmt.Println("failed to marshal:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -124,7 +125,69 @@ func (o *Order) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *Order) UpdateByID(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Update an order by ID")
+	var body struct {
+		Status string `json:"status"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+
+	idParam := chi.URLParam(r, "id")
+	fmt.Println("hi--")
+
+	const base = 10
+	const bitSize = 64
+
+	orderID, err := strconv.ParseUint(idParam, base, bitSize)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	theOrder, err := o.Repo.FindByID(r.Context(), orderID)
+	if errors.Is(err, order.ErrNotExist) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	} else if err != nil {
+		fmt.Println("failed to find by id:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	const completedStatus = "completed"
+	const shippedStatus = "shipped"
+	now := time.Now().UTC()
+
+	switch body.Status {
+	case shippedStatus:
+		if theOrder.ShipedAt != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		theOrder.ShipedAt = &now
+	case completedStatus:
+		if theOrder.CompletedAt != nil || theOrder.ShipedAt == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		theOrder.CompletedAt = &now
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = o.Repo.Update(r.Context(), theOrder)
+	if err != nil {
+		fmt.Println("failed to insert:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(theOrder); err != nil {
+		fmt.Println("failed to marshal:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }
 
 func (o *Order) DeleteByID(w http.ResponseWriter, r *http.Request) {
