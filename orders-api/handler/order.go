@@ -95,23 +95,29 @@ func (o *Order) List(w http.ResponseWriter, r *http.Request) {
 
 func (o *Order) GetByID(w http.ResponseWriter, r *http.Request) {
 	idParam := r.URL.Query().Get("id")
+	//idParam := chi.URLParam(r, "id")
 
-	orderID, err := strconv.ParseUint(idParam, 10, 64)
+	const base = 10
+	const bitSize = 64
+
+	orderID, err := strconv.ParseUint(idParam, base, bitSize)
 	if err != nil {
-		fmt.Errorf("failed to string to uint", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
 	h, err := o.Repo.FindByID(r.Context(), orderID)
-	fmt.Println("rtt")
 	if errors.Is(err, order.ErrNotExist) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	} else if err != nil {
+		fmt.Println("failed to find by id:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
 	if err := json.NewEncoder(w).Encode(h); err != nil {
+		fmt.Println("failed to marshal:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
