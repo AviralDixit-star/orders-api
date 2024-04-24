@@ -68,7 +68,7 @@ func (r *RedisRepo) FindByID(ctx context.Context, id uint64) (model.Order, error
 	return order, nil
 }
 
-func (r *RedisRepo) DeleteByID(ctx context.Context, id uint64) (string, error) {
+func (r *RedisRepo) DeleteByID(ctx context.Context, id uint64) error {
 	key := orderIDKey(id)
 
 	txn := r.Client.TxPipeline()
@@ -76,22 +76,22 @@ func (r *RedisRepo) DeleteByID(ctx context.Context, id uint64) (string, error) {
 	err := txn.Del(ctx, key).Err()
 	if errors.Is(err, redis.Nil) {
 		txn.Discard()
-		return "", ErrNotExist
+		return ErrNotExist
 	} else if err != nil {
 		txn.Discard()
-		return "", fmt.Errorf("get error %w", err)
+		return fmt.Errorf("get error %w", err)
 	}
 
 	err = txn.SRem(ctx, "orders", key).Err()
 	if err != nil {
-		return "", fmt.Errorf("failed to remove from order set: %w", err)
+		return fmt.Errorf("failed to remove from order set: %w", err)
 	}
 	_, err = txn.Exec(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to exce %w", err)
+		return fmt.Errorf("failed to exce %w", err)
 	}
 
-	return "Successfully Deleted", nil
+	return nil
 }
 
 func (r *RedisRepo) Update(ctx context.Context, order model.Order) error {

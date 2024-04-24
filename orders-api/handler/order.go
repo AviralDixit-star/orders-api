@@ -9,17 +9,18 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
 	"github.com/AviralDixit-star/orders-api/model"
 	"github.com/AviralDixit-star/orders-api/repository/order"
-	"github.com/go-chi/chi"
-	"github.com/google/uuid"
 )
 
 type Order struct {
 	Repo *order.RedisRepo
 }
 
-func (o *Order) Create(w http.ResponseWriter, r *http.Request) {
+func (h *Order) Create(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		CustomerID uuid.UUID        `json:"customer_id"`
 		LineItems  []model.LineItem `json:"line_items"`
@@ -27,7 +28,6 @@ func (o *Order) Create(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Println("failed", err)
 		return
 	}
 
@@ -40,62 +40,67 @@ func (o *Order) Create(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:  &now,
 	}
 
-	err := o.Repo.Insert(r.Context(), order)
+	err := h.Repo.Insert(r.Context(), order)
 	if err != nil {
+		fmt.Println("failed to insert:", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	res, err := json.Marshal(order)
 	if err != nil {
-		fmt.Println("failed to marshal %w", err)
+		fmt.Println("failed to marshal:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	w.Write(res)
 	w.WriteHeader(http.StatusCreated)
+	w.Write(res)
 }
 
-func (o *Order) List(w http.ResponseWriter, r *http.Request) {
+func (h *Order) List(w http.ResponseWriter, r *http.Request) {
 	cursorStr := r.URL.Query().Get("cursor")
-
 	if cursorStr == "" {
 		cursorStr = "0"
 	}
 
-	cursor, err := strconv.ParseUint(cursorStr, 10, 64)
+	const decimal = 10
+	const bitSize = 64
+	cursor, err := strconv.ParseUint(cursorStr, decimal, bitSize)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
 	const size = 50
-	res, err := o.Repo.FindAll(r.Context(), order.FindAllPage{
+	res, err := h.Repo.FindAll(r.Context(), order.FindAllPage{
 		OffSet: cursor,
 		Size:   size,
 	})
 	if err != nil {
-		fmt.Println("failed to find all", err)
-		w.WriteHeader(http.StatusBadRequest)
+		fmt.Println("failed to find all:", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
 	var response struct {
 		Items []model.Order `json:"items"`
 		Next  uint64        `json:"next,omitempty"`
 	}
-
 	response.Items = res.Order
 	response.Next = res.Cursor
+
 	data, err := json.Marshal(response)
 	if err != nil {
-		fmt.Println("failed to marshal", err)
+		fmt.Println("failed to marshal:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
 	w.Write(data)
 }
 
-func (o *Order) GetByID(w http.ResponseWriter, r *http.Request) {
-	//idParam := r.URL.Query().Get("id")
+func (h *Order) GetByID(w http.ResponseWriter, r *http.Request) {
 	idParam := chi.URLParam(r, "id")
 
 	const base = 10
@@ -107,7 +112,7 @@ func (o *Order) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	theOrder, err := o.Repo.FindByID(r.Context(), orderID)
+	o, err := h.Repo.FindByID(r.Context(), orderID)
 	if errors.Is(err, order.ErrNotExist) {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -117,24 +122,24 @@ func (o *Order) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(theOrder); err != nil {
+	if err := json.NewEncoder(w).Encode(o); err != nil {
 		fmt.Println("failed to marshal:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
 
-func (o *Order) UpdateByID(w http.ResponseWriter, r *http.Request) {
+func (h *Order) UpdateByID(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Status string `json:"status"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	idParam := chi.URLParam(r, "id")
-	fmt.Println("hi--")
 
 	const base = 10
 	const bitSize = 64
@@ -145,7 +150,7 @@ func (o *Order) UpdateByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	theOrder, err := o.Repo.FindByID(r.Context(), orderID)
+	theOrder, err := h.Repo.FindByID(r.Context(), orderID)
 	if errors.Is(err, order.ErrNotExist) {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -154,6 +159,7 @@ func (o *Order) UpdateByID(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
 	const completedStatus = "completed"
 	const shippedStatus = "shipped"
 	now := time.Now().UTC()
@@ -176,7 +182,7 @@ func (o *Order) UpdateByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = o.Repo.Update(r.Context(), theOrder)
+	err = h.Repo.Update(r.Context(), theOrder)
 	if err != nil {
 		fmt.Println("failed to insert:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -190,6 +196,25 @@ func (o *Order) UpdateByID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (o *Order) DeleteByID(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("delete an order by ID")
+func (h *Order) DeleteByID(w http.ResponseWriter, r *http.Request) {
+	idParam := chi.URLParam(r, "id")
+
+	const base = 10
+	const bitSize = 64
+
+	orderID, err := strconv.ParseUint(idParam, base, bitSize)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = h.Repo.DeleteByID(r.Context(), orderID)
+	if errors.Is(err, order.ErrNotExist) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	} else if err != nil {
+		fmt.Println("failed to find by id:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }
