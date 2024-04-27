@@ -43,7 +43,6 @@ func (r *RedisRepo) Insert(ctx context.Context, order model.Order) error {
 	if err != nil {
 		return fmt.Errorf("failed to excecute %w", err)
 	}
-	fmt.Println("print")
 	return nil
 }
 
