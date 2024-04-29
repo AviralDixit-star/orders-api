@@ -21,7 +21,7 @@ func orderIDKey(id uint64) string {
 func (r *RedisRepo) Insert(ctx context.Context, order model.Order) error {
 	data, err := json.Marshal(order)
 	if err != nil {
-		return fmt.Errorf("failed to encod: %w", err)
+		return fmt.Errorf("failed to encode: %w", err)
 	}
 	key := orderIDKey(order.OrderID)
 
