@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/AviralDixit-star/orders-api/repository/postgres"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -33,7 +34,8 @@ func (a *App) Start(ctx context.Context) error {
 		Addr:    fmt.Sprintf(":%d", a.config.ServerPort),
 		Handler: a.router,
 	}
-
+	dbClient := postgres.NewConnection()
+	fmt.Println("db", dbClient)
 	err := a.rdb.Ping(ctx).Err()
 	if err != nil {
 		return fmt.Errorf("failed to connect to redis: %w", err)
